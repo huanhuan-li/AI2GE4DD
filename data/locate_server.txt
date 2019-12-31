@@ -1,8 +1,0 @@
-1. Available server
-GHDDI cluster;
-Dinglab server;
-
-2. path_to_data
-GHDDI cluster: /data01/hli/L1000
-Dinglab server: /mnt/sd2/AI2DD
-downloaded from: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE92742
