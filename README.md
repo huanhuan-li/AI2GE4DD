@@ -10,8 +10,10 @@ Model for predicting/screening small molecules with ability to achieve specific 
 4. mian achieve: result explanation, effect of different init param.  
 ref: https://github.com/google-research/disentanglement_lib  
 #### **Our model**
-Under discussion:  
-Evaluation: test set 1) from the same distribution with training set; 2) novel cell type/small molecule;    
-worth trying: Does disentanglement performance correlated with our prediction result?  
 
 ## Done List  
+
+## Under Discussion
+**Dataset**: to check performance on test set 1) from the same distribution with training set; 2) novel cell type/small molecule;
+**Evaluation**: metrics design    
+*maybe worth trying: Does disentanglement performance correlated with our prediction result?*
