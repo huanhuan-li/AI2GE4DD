@@ -3,8 +3,7 @@ please feel free to add/edit
 Model for predicting/screening small molecules with ability to achieve specific gene expression profile  
 
 ## TODO List
-#### Towards learning disentangled explanatory factors  
-Now focus on
+#### Towards learning disentangled explanatory factors (2020.01-2020.02):  
 1. models: β-VAE, FactorVAE, β-TCVAE, DIP-VAE
 2. metrics: BetaVAE score, FactorVAE score, Mutual Information Gap(MIG), DCI disentanglement
 3. dataset: L1000 gene expression subset.
