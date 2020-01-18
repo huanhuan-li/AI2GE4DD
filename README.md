@@ -9,8 +9,8 @@ ref: https://github.com/google-research/disentanglement_lib
 2. metrics: BetaVAE score, FactorVAE score, Mutual Information Gap(MIG), DCI disentanglement
 3. dataset: L1000 gene expression subset.
 4. performance:  
-&emsp; - different number of dimensions, and biological meaning of each dimension;  
-&emsp; - robustness, for example, whether different parameter initializations will lead to shuffle of dimension meaning;    
+&ensp; - different number of dimensions, and biological meaning of each dimension;  
+&ensp; - robustness, for example, whether different parameter initializations will lead to shuffle of dimension meaning;    
 
 #### **Building of our model**
 
