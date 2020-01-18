@@ -12,7 +12,9 @@ ref: https://github.com/google-research/disentanglement_lib
 &ensp; - different number of dimensions, and biological meaning of each dimension;  
 &ensp; - robustness, for example, whether different parameter initializations will lead to shuffle of dimension meaning;    
 
-#### **Building of our model**
+#### **Building of our model**  
+
+#### **Transfering to novel cell types**  
 
 ## Done List  
 
