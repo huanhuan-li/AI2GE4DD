@@ -4,7 +4,7 @@ Model for predicting/screening small molecules with ability to achieve specific 
 
 ## TODO List
 #### **Towards learning disentangled explanatory factors (2020.01.19 - 2020.02):**  
-ref: https://github.com/google-research/disentanglement_lib  
+&ensp;ref: https://github.com/google-research/disentanglement_lib  
 1. models: β-VAE, FactorVAE, β-TCVAE, DIP-VAE
 2. metrics: BetaVAE score, FactorVAE score, Mutual Information Gap(MIG), DCI disentanglement
 3. dataset: L1000 gene expression subset.
