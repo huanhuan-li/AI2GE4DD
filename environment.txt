@@ -6,4 +6,4 @@ tensorflow==1.14
 tensorflow-gpu==1.14
 
 need to be installed (feel free to add/edit):
-pytroch==?
+pytorch==?
