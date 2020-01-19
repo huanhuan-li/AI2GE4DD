@@ -1,0 +1,9 @@
+dinglab_server
+conda envs: vae2dd
+
+installed:
+tensorflow==1.14
+tensorflow-gpu==1.14
+
+need to be installed:
+pytroch==?
