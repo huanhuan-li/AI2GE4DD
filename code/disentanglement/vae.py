@@ -89,7 +89,7 @@ class AnnealedVAE(BaseVAE):
         c = utilies.anneal(self.c_max, tf.train.get_global_step(), self.iteration_threshold)
         return self.gamma * tf.math.abs(kl_loss - c)
 
-class FactorVAE(BaseVAE):
+class FactorVAE(BaseVAE): # not finished
     '''FactorVAE: https://arxiv.org/pdf/1802.05983'''
     def __init__(self, gamma):
         self.gamma = gamma
@@ -100,4 +100,22 @@ class FactorVAE(BaseVAE):
         data_shape = 
         z_mean, z_logvar = self.gaussian_encoder(input, is_training=is_training)
         z_sampled = self.sample_from_latent_distribution(z_mean, z_logvar)
-        z_shuffle = shuffle_codes(z_sampled)
+        z_shuffle = utilies.shuffle_codes(z_sampled)
+        
+        with tf.variable_scope(tf.get_variable_scope(), reuse=tf.AUTO_REUSE):
+            logits_z, probs_z = architectures.make_discriminator(z_sampled, is_training=is_training)
+            _, probs_z_shuffle = architectures.make_discriminator(z_shuffle, is_training=is_training)
+        
+        reconstructions = self.decode(z_sampled, data_shape, is_training)
+        # loss
+        per_sample_loss = losses.make_reconstruction_loss(input, reconstructions)
+        reconstruction_loss = tf.reduce_mean(per_sample_loss)
+        kl_loss = utilies.compute_gaussian_kl(z_mean, z_logvar)
+        standard_vae_loss = tf.add(reconstruction_loss, kl_loss, name="VAE_loss")
+        tc_loss_per_sample = logits_z[:, 0] - logits_z[:, 1]
+        tc_loss = tf.reduce_mean(tc_loss_per_sample, axis=0)
+        regularizer = kl_loss + self.gamma * tc_loss
+        factor_vae_loss = tf.add(standard_vae_loss, self.gamma * tc_loss, name="factor_VAE_loss")
+        discr_loss = tf.add(0.5 * tf.reduce_mean(tf.log(probs_z[:, 0])),
+                                0.5 * tf.reduce_mean(tf.log(probs_z_shuffle[:, 1])), name="discriminator_loss")
+

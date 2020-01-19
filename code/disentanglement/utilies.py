@@ -15,3 +15,16 @@ def anneal(c_max, step, iteration_threshold):
     Returns:
         Capacity annealed linearly until c_max."""
     return tf.math.minimum(c_max * 1., c_max * 1. * tf.to_float(step) / iteration_threshold)
+    
+def shuffle_codes(z):
+    """Shuffles latent variables across the batch.
+    Args:
+        z: [batch_size, num_latent] representation.
+    Returns:
+        shuffled: [batch_size, num_latent] shuffled representation across the batch.
+    """
+    z_shuffle = []
+    for i in range(z.get_shape()[1]):
+        z_shuffle.append(tf.random_shuffle(z[:, i]))
+        shuffled = tf.stack(z_shuffle, 1, name="latent_shuffled")
+    return shuffled
