@@ -6,6 +6,12 @@ def compute_gaussian_kl(z_mean, z_logvar):
     """Compute KL divergence between input Gaussian and Standard Normal."""
     return tf.reduce_mean(0.5 * tf.reduce_sum(tf.square(z_mean) + tf.exp(z_logvar) - z_logvar - 1, [1]), name="kl_loss")
     
+def batchnorm(inputs, axis, scale=None, offset=None, variance_epsilon=0.001, name=None):
+    with tf.variable_scope('batchnorm'):
+        mean, var = tf.nn.moments(inputs, axis, keep_dims=True)
+        result = tf.nn.batch_normalization(inputs, mean, var, offset, scale, variance_epsilon, name=name)
+    return result
+    
 def anneal(c_max, step, iteration_threshold):
     """Anneal function for anneal_vae https://arxiv.org/abs/1804.03599
     Args:
