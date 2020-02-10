@@ -1,5 +1,6 @@
 
 import argparse
+import vae
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-d', type=str, default='', help='path to input data')
