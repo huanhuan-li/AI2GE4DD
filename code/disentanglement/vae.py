@@ -7,7 +7,7 @@ TODO:
 
 import tensorflow as tf
 from utilies import batchnorm
-
+import linear
 
 def ReLULayer(name, n_in, n_out, inputs):
     output = linear.Linear(
@@ -32,26 +32,29 @@ def LeakyReLULayer(name, n_in, n_out, inputs):
     )
     return LeakyReLU(output)
 
-class BaseVAE(Object):
+class BaseVAE:
     """The basic Gaussian encoder model."""
-    def __init__(batchsize,
-                xdim,
-                zdim,
-                lr):
+    def __init__(self, batchsize, xdim, zdim, lr, beta1, beta2):
+        
         self.batchsize = batchsize
         self.xdim = xdim
         self.zdim = zdim
         self.lr = lr
-    
-    def model_fn(self):
+        self.beta1 = beta1
+        self.beta2 = beta2
+
+    def build(self):
 
         '''data flow'''
         self.input_x = tf.placeholder(tf.float32, (self.batchsize, self.xdim))
+        
         z_mean, z_logvar = self.encoder(self.input_x, 
                                         self.zdim, 
                                         reuse=False, 
                                         bn=True)
+        
         z_sampled = self.sample_from_latent_distribution(z_mean, z_logvar)
+        
         reconstructions = self.decoder(z_sampled, 
                                         self.xdim, 
                                         reuse=False, 
@@ -68,14 +71,14 @@ class BaseVAE(Object):
         elbo = tf.add(reconstruction_loss, kl_loss, name="elbo")
         # losses
         regularizer = self.regularizer(kl_loss, z_mean, z_logvar, z_sampled)
-        loss = tf.add(reconstruction_loss, regularizer, name="loss")
+        self.loss = tf.add(reconstruction_loss, regularizer, name="loss")
         
         '''Optimizers'''
         self.optim = tf.train.AdamOptimizer(self.lr, self.beta1, self.beta2)
         with tf.name_scope("train_op"):
-            self.train_step = self.e_optim.minimize(self.loss, var_list=encoder_vars+decoder_vars)
+            self.train_step = self.optim.minimize(self.loss, var_list=encoder_vars+decoder_vars)
             
-    def encoder(input, num_latent, reuse, bn):
+    def encoder(self, input, num_latent, reuse, bn):
         '''fully connected encoder'''
         with tf.variable_scope('encoder', reuse=reuse) as scope:
         
@@ -102,7 +105,7 @@ class BaseVAE(Object):
     def sample_from_latent_distribution(self, z_mean, z_logvar):
         return tf.add(z_mean, tf.exp(z_logvar / 2) * tf.random_normal(tf.shape(z_mean), 0, 1), name="sampled_latent_variable")
         
-    def decoder(input, out_dim, reuse, bn):
+    def decoder(self, input, out_dim, reuse, bn):
         '''fully connected decoder'''
         with tf.variable_scope('decoder', reuse=reuse) as scope:
     
@@ -128,8 +131,12 @@ class BaseVAE(Object):
 
 class BetaVAE(BaseVAE):
     '''BetaVAE: https://openreview.net/forum?id=Sy2fzU9gl'''
-    def __init__(self, beta):
+    def __init__(self, batchsize, xdim, zdim, lr, beta1, beta2, beta):
+        
+        super().__init__(batchsize, xdim, zdim, lr, beta1, beta2)
         self.beta = beta
+        super().build()
+    
     def regularizer(self, kl_loss, z_mean, z_logvar, z_sampled):
         del z_mean, z_logvar, z_sampled
         return self.beta * kl_loss
