@@ -1,6 +1,8 @@
 # coding=utf-8
 
+import numpy as np
 import tensorflow as tf
+from scipy.stats import percentileofscore
 
 def compute_gaussian_kl(z_mean, z_logvar):
     """Compute KL divergence between input Gaussian and Standard Normal."""
@@ -34,3 +36,25 @@ def shuffle_codes(z):
         z_shuffle.append(tf.random_shuffle(z[:, i]))
         shuffled = tf.stack(z_shuffle, 1, name="latent_shuffled")
     return shuffled
+    
+def calcu_rsquare_distance(ref_, samp_):
+    result = []
+    for gene_idx in range(ref_.shape[1]):
+        ref = ref_[:, gene_idx]
+        samp = samp_[:, gene_idx]
+        
+        sample = [0.02] + [i for i in np.arange(0.05, 1.0, 0.05)]
+        
+        samp_pct_x = []
+        samp_pct_y = []
+        
+        for i,s in enumerate(sample):
+            # theoretical quantiles
+            samp_pct_x.append(percentileofscore(ref, s))
+            # sample quantiles
+            samp_pct_y.append(percentileofscore(samp, s))
+        
+        # estimated quantile distance
+        r = np.linalg.norm(np.subtract(np.asarray(samp_pct_x)/100, np.asarray(samp_pct_y)/100), ord=2)
+        result.append(r)
+    return result

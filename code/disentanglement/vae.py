@@ -55,7 +55,7 @@ class BaseVAE:
         
         z_sampled = self.sample_from_latent_distribution(z_mean, z_logvar)
         
-        reconstructions = self.decoder(z_sampled, 
+        self.reconstructions = self.decoder(z_sampled, 
                                         self.xdim, 
                                         reuse=False, 
                                         bn=True)
@@ -65,13 +65,13 @@ class BaseVAE:
         decoder_vars = [var for var in tf.trainable_variables() if 'decoder' in var.name]
         
         '''losses (elbo with regularizer)'''
-        reconstruction_loss = tf.reduce_mean(tf.reduce_sum(tf.square(self.input_x - reconstructions), 1)) # need check
+        self.reconstruction_loss = tf.reduce_mean(tf.reduce_sum(tf.square(self.input_x - self.reconstructions), 1)) # need check
         kl_loss = tf.reduce_mean(0.5 * tf.reduce_sum(tf.square(z_mean) + tf.exp(z_logvar) - z_logvar - 1, [1]), name="kl_loss") # need check
         # elbo
-        elbo = tf.add(reconstruction_loss, kl_loss, name="elbo")
+        elbo = tf.add(self.reconstruction_loss, kl_loss, name="elbo")
         # losses
-        regularizer = self.regularizer(kl_loss, z_mean, z_logvar, z_sampled)
-        self.loss = tf.add(reconstruction_loss, regularizer, name="loss")
+        self.regularizer_ = self.regularizer(kl_loss, z_mean, z_logvar, z_sampled)
+        self.loss = tf.add(self.reconstruction_loss, self.regularizer_, name="loss")
         
         '''Optimizers'''
         self.optim = tf.train.AdamOptimizer(self.lr, self.beta1, self.beta2)
