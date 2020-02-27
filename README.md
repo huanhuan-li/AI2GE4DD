@@ -20,5 +20,6 @@ Model for predicting/screening small molecules with ability to achieve specific 
 
 ## Under Discussion
 **Dataset**: to check performance on test set 1) from the same distribution with training set; 2) novel cell type/small molecule;
+**loss**: E(logp(yi,xi,zi)|zx,zd) = E(logp(yi,xi,zi|yi^,xi^,zi^)) ~ E(MSE). concat or not?
 **Evaluation**: metrics design    
 *maybe worth trying: Does disentanglement performance correlated with our prediction result?*
