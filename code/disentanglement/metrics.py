@@ -26,36 +26,36 @@ def compute_MIG(ground_truth_data,
     assert mus_train.shape[1] == num_train
     return _compute_MIG(mus_train, ys_train)
 
-
-def _compute_MIG(mus_train, ys_train):
-    """Computes score based on both training and testing codes and factors."""
+# estimate the discrete mutual information by binning each dimension of the representations obtained from 10,000 points into 20 bins;
+def _compute_MIG(z, v):
+    """Computes score based on both training and testing codes and factors. v->x, x->z"""
     score_dict = {}
-    discretized_mus = utils.make_discretizer(mus_train)
-    m = utils.discrete_mutual_info(discretized_mus, ys_train)
-    assert m.shape[0] == mus_train.shape[0]
-    assert m.shape[1] == ys_train.shape[0]
+    discretized_z = utils.make_discretizer(z)
+    m = discrete_mutual_info(discretized_z, v)
+    assert m.shape[0] == z.shape[0]
+    assert m.shape[1] == v.shape[0]
     # m is [num_latents, num_factors]
-    entropy = discrete_entropy(ys_train)
+    entropy = discrete_entropy(v)
     sorted_m = np.sort(m, axis=0)[::-1]
     score_dict["discrete_MIG"] = np.mean(np.divide(sorted_m[0, :] - sorted_m[1, :], entropy[:]))
     return score_dict
   
-def discrete_mutual_info(mus, ys):
-    """Compute discrete mutual information."""
-    num_codes = mus.shape[0]
-    num_factors = ys.shape[0]
+def discrete_mutual_info(z, v):
+    """Compute discrete mutual information. v->x, x->z"""
+    num_codes = z.shape[0]
+    num_factors = v.shape[0]
     m = np.zeros([num_codes, num_factors])
     for i in range(num_codes):
         for j in range(num_factors):
-            m[i, j] = sklearn.metrics.mutual_info_score(ys[j, :], mus[i, :])
+            m[i, j] = sklearn.metrics.mutual_info_score(v[j, :], z[i, :])
     return m
   
-def discrete_entropy(ys):
+def discrete_entropy(v):
     """Compute discrete mutual information."""
-    num_factors = ys.shape[0]
+    num_factors = v.shape[0]
     h = np.zeros(num_factors)
     for j in range(num_factors):
-        h[j] = sklearn.metrics.mutual_info_score(ys[j, :], ys[j, :])
+        h[j] = sklearn.metrics.mutual_info_score(v[j, :], v[j, :])
     return h
     
 def generate_batch_factor_code(ground_truth_data, representation_function,
