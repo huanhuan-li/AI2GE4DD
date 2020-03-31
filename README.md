@@ -4,10 +4,9 @@ Model for predicting/screening small molecules with ability to achieve specific 
 
 ## TODO List
 #### **Towards learning disentangled explanatory factors:**   
-(2020.03 - 2020.04)    
+(2020.04 - 2020.05)    
 &emsp;Performance:  
-1. different number of dimensions, and biological meaning of each dimension;  
-2. robustness, for example, whether different parameter initializations will lead to shuffle of dimension meaning;    
+1. model selection, and biological meaning interperation;    
 
 #### **Transfering to novel cell types**  
 
@@ -18,6 +17,13 @@ Model for predicting/screening small molecules with ability to achieve specific 
 1. models: β-VAE, FactorVAE, β-TCVAE, DIP-VAE
 2. metrics: BetaVAE score, FactorVAE score, Mutual Information Gap(MIG), DCI disentanglement
 3. dataset: L1000 gene expression subset.  
+
+(2020.02 - 2020.03)  
+model conducted: beta-VAE, AnnealedVAE, beta-TCVAE, FactorVAE, DIP-VAE;  
+metrics used:  
+A) Independence between the latent variables - total correlation/correlation between variables;  
+B) capacity of latent variable - KL(q(z_i|x)||p(z_i));  
+C) Mutual information between the latent variables and the data variable;  
 
 #### **Initial Building of our model**    
 Done by Pengcheng.  
