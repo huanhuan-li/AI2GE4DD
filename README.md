@@ -19,11 +19,11 @@ Model for predicting/screening small molecules with ability to achieve specific 
 3. dataset: L1000 gene expression subset.  
 
 (2020.02 - 2020.03)  
-model conducted: beta-VAE, AnnealedVAE, beta-TCVAE, FactorVAE, DIP-VAE;  
-metrics used:  
-A) Independence between the latent variables - total correlation/correlation between variables;  
-B) capacity of latent variable - KL(q(z_i|x)||p(z_i));  
-C) Mutual information between the latent variables and the data variable;  
+&emsp;model conducted: beta-VAE, AnnealedVAE, beta-TCVAE, FactorVAE, DIP-VAE;  
+&emsp;metrics used:  
+1. Independence between the latent variables - total correlation/correlation between variables;  
+2. capacity of latent variable - KL(q(z_i|x)||p(z_i));  
+3. Mutual information between the latent variables and the data variable;  
 
 #### **Initial Building of our model**    
 Done by Pengcheng.  
