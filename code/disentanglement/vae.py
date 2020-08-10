@@ -60,18 +60,23 @@ class BaseVAE:
                                         self.xdim, 
                                         reuse=False, 
                                         bn=True)
+                                        
+        self.z_mean_, self.z_logvar_ = self.encoder(self.reconstructions,  # encode from reconstruction sample
+                                        self.zdim, 
+                                        reuse=True, 
+                                        bn=True)
         
         '''vars'''
         encoder_vars = [var for var in tf.trainable_variables() if 'encoder' in var.name]
         decoder_vars = [var for var in tf.trainable_variables() if 'decoder' in var.name]
         
         '''losses (elbo with regularizer)'''
-        self.reconstruction_loss = tf.reduce_mean(tf.reduce_sum(tf.square(self.input_x - self.reconstructions), 1)) # need check
-        kl_loss = tf.reduce_mean(0.5 * tf.reduce_sum(tf.square(self.z_mean) + tf.exp(self.z_logvar) - self.z_logvar - 1, [1]), name="kl_loss") # need check
+        self.reconstruction_loss = tf.reduce_mean(tf.reduce_sum(tf.square(self.input_x - self.reconstructions), 1)) 
+        self.kl_loss = tf.reduce_mean(0.5 * tf.reduce_sum(tf.square(self.z_mean) + tf.exp(self.z_logvar) - self.z_logvar - 1, [1]), name="kl_loss")
         # elbo
-        elbo = tf.add(self.reconstruction_loss, kl_loss, name="elbo")
+        elbo = tf.add(self.reconstruction_loss, self.kl_loss, name="elbo")
         # losses
-        self.regularizer_ = self.regularizer(kl_loss, self.z_mean, self.z_logvar, self.z_sampled)
+        self.regularizer_ = self.regularizer(self.kl_loss, self.z_mean, self.z_logvar, self.z_sampled, self.z_mean_, self.z_logvar_)
         self.loss = tf.add(self.reconstruction_loss, self.regularizer_, name="loss")
         
         '''Optimizers'''
@@ -148,9 +153,27 @@ class BetaVAE(BaseVAE):
         self.beta = beta
         super().build()
     
-    def regularizer(self, kl_loss, z_mean, z_logvar, z_sampled):
-        del z_mean, z_logvar, z_sampled
+    def regularizer(self, kl_loss, z_mean, z_logvar, z_sampled, z_mean_, z_logvar_):
+        del z_mean, z_logvar, z_sampled, z_mean_, z_logvar_
         return self.beta * kl_loss
+        
+def calcElogN(qz, z_mean_, z_logvar_):
+    return tf.reduce_mean( -0.5*z_logvar_ - tf.square(qz - z_mean_)/2*tf.exp(z_logvar_), 0) # give a result of dimension [zdim]
+    
+class infoBetaVAE(BaseVAE):
+    '''self designed'''
+    def __init__(self, batchsize, xdim, zdim, lr, beta1, beta2, beta, gamma, c):
+        
+        super().__init__(batchsize, xdim, zdim, lr, beta1, beta2)
+        self.beta = beta
+        self.gamma = gamma
+        self.c = c
+        super().build()
+    
+    def regularizer(self, kl_loss, z_mean, z_logvar, z_sampled, z_mean_, z_logvar_):
+        del z_mean, z_logvar
+        mi = calcElogN(z_sampled, z_mean_, z_logvar_)
+        return self.beta * kl_loss + self.gamma * tf.reduce_mean(tf.abs(mi - self.c))
         
 def anneal(c_max, step, iteration_threshold):
     """Anneal function for anneal_vae (https://arxiv.org/abs/1804.03599).

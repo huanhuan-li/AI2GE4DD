@@ -1,8 +1,10 @@
 # coding=utf-8
 
 import os
+import time
 import argparse
 import numpy as np
+import pandas as pd
 import tensorflow as tf
 
 import vae
@@ -20,7 +22,7 @@ parser.add_argument('-checkpoint_dir', default='checkpoint/')
 parser.add_argument('-sample_dir', default='sample/')
 parser.add_argument('-save_dir', default='/home/hli/vae2dd/result/')
 parser.add_argument('-out', type=str, default=None, help='dir name')
-parser.add_argument('-batchsize', type=int, default=64, metavar='N', help='batch size')
+parser.add_argument('-batchsize', type=int, default=128, metavar='N', help='batch size')
 parser.add_argument('-numepoch', type=int, default=1000000, metavar='N', help='epoch')
 parser.add_argument('-mode', type=str, default=None, help='disentangle vae type: {betaVAE, annealedVAE, betaTCVAE, factorVAE, DIPVAE}')
 parser.add_argument('-hyperparam', '--hyperparam', nargs='+', type=int, default=[], help='hyper parameters setting for different disentabgle vae mode')
@@ -32,6 +34,7 @@ parser.add_argument('-intervention_factor_idxs', '--intervention_factor_idxs',
                     nargs='+', type=int, default=[], help='latent dim which has capacity > cutoff')
 parser.add_argument('-fqz', type=str, default=None, help='input qz data')
 args = parser.parse_args()
+print(args.hyperparam)
 
 '''settings'''
 if args.out == None:
@@ -91,7 +94,7 @@ def log_histogram(writer, tag, values, step, bins=100):
     summary = tf.Summary(value=[tf.Summary.Value(tag=tag, histo=hist)])
     writer.add_summary(summary, step)
     writer.flush()
-
+    
 '''load data'''
 input_param = {
     'path': os.path.join(args.d, args.f),
@@ -116,20 +119,31 @@ data_test = dataloader.InputHandle(input_param_test)
 
 '''load model'''
 zdim = 50
+xdim = data_test.xdim
 learning_rate = 1e-3
 beta1 = 0.9
 beta2 = 0.999
 if args.mode == 'betaVAE':
     mdl = vae.BetaVAE(batchsize = args.batchsize,
-                    xdim = data_handler.xdim,
+                    xdim = xdim,
                     zdim = zdim,
                     lr = learning_rate,
                     beta1 = beta1,
                     beta2 = beta2,
                     beta = args.hyperparam[0])
+if args.mode == 'info-betaVAE':
+    mdl = vae.infoBetaVAE(batchsize = args.batchsize,
+                    xdim = xdim,
+                    zdim = zdim,
+                    lr = learning_rate,
+                    beta1 = beta1,
+                    beta2 = beta2,
+                    beta = args.hyperparam[0],
+                    gamma = args.hyperparam[1], 
+                    c = args.hyperparam[2])
 elif args.mode == 'annealedVAE':
     mdl = vae.AnnealedVAE(batchsize = args.batchsize,
-                        xdim = data_handler.xdim,
+                        xdim = xdim,
                         zdim = zdim,
                         lr = learning_rate,
                         beta1 = beta1,
@@ -139,7 +153,7 @@ elif args.mode == 'annealedVAE':
                         iteration_threshold = 1e3)
 elif args.mode == 'betaTCVAE':
     mdl = vae.BetaTCVAE(batchsize = args.batchsize,
-                    xdim = data_handler.xdim,
+                    xdim = xdim,
                     zdim = zdim,
                     lr = learning_rate,
                     beta1 = beta1,
@@ -147,7 +161,7 @@ elif args.mode == 'betaTCVAE':
                     beta = 1.0)
 elif args.mode == 'factorVAE':
     mdl = vae.FactorVAE(batchsize = args.batchsize,
-                    xdim = data_handler.xdim,
+                    xdim = xdim,
                     zdim = zdim,
                     lr = learning_rate,
                     beta1 = beta1,
@@ -155,7 +169,7 @@ elif args.mode == 'factorVAE':
                     gamma = 1.0)
 elif args.mode == 'DIPVAE':
     mdl = vae.DIPVAE(batchsize = args.batchsize,
-                    xdim = data_handler.xdim,
+                    xdim = xdim,
                     zdim = zdim,
                     lr = learning_rate,
                     beta1 = beta1,
@@ -167,6 +181,7 @@ elif args.mode == 'DIPVAE':
 '''tensorboard monitor'''
 #tf.summary.scalar('Loss', mdl.loss)
 tf.summary.scalar('Loss/reconstruction_loss', mdl.reconstruction_loss)
+tf.summary.scalar('Loss/kl_loss', mdl.kl_loss)
 tf.summary.scalar('Loss/regularizer_', mdl.regularizer_)
 train_summaries = tf.summary.merge_all()
 
@@ -188,7 +203,7 @@ def train():
         
             batch_x = data_handler.samp_batch()
             
-            if args.mode in ['betaVAE', 'betaTCVAE', 'DIPVAE']:
+            if args.mode in ['betaVAE', 'info-betaVAE', 'betaTCVAE', 'DIPVAE']:
                 feeds = {
                         mdl.input_x: batch_x,
                 }
@@ -280,27 +295,37 @@ def test():
         else:
             print("InputError: model should exist in test mode!")
         
+        qz_zmean = np.empty(shape=[0, mdl.zdim])
+        qz_zlogvar = np.empty(shape=[0, mdl.zdim])
+        qz_samp = np.empty(shape=[0, mdl.zdim])
         rec_x = np.empty(shape=[0, mdl.xdim])
-        test_zmean = np.empty(shape=[0, mdl.zdim])
-        test_zlogvar = np.empty(shape=[0, mdl.zdim])
-        test_qz = np.empty(shape=[0, mdl.zdim])
+        qz_zmean_from_recx = np.empty(shape=[0, mdl.zdim])
+        qz_zlogvar_from_recx = np.empty(shape=[0, mdl.zdim])
 
         for i in range(data_test.N//args.batchsize):
+            
             batch_x = data_test.samp_batch()
-            feeds = {
-                mdl.input_x: batch_x,
-            }
-            px, zmean, zlogvar, qz = sess.run([mdl.reconstructions, mdl.z_mean, mdl.z_logvar, mdl.z_sampled], feed_dict=feeds)
+            zmean_, zlogvar_ = mdl.encoder(tf.convert_to_tensor(batch_x, dtype=tf.float32), mdl.zdim, reuse=True, bn=True)
+            qz_ = tf.add(zmean_, tf.exp(zlogvar_ / 2) * tf.random_normal(tf.shape(zmean_), 0, 1))
+            px_ = mdl.decoder(qz_, mdl.xdim, reuse=True, bn=True)
+            zmean_from_recx_, zlogvar_from_recx_ = mdl.encoder(px_, mdl.zdim, reuse=True, bn=True)
+            
+            zmean, zlogvar, qz, px, zmean_from_recx, zlogvar_from_recx = sess.run([zmean_, zlogvar_, qz_, px_, zmean_from_recx_, zlogvar_from_recx_])
+            
+            qz_zmean = np.append(qz_zmean, zmean, axis=0)
+            qz_zlogvar = np.append(qz_zlogvar, zlogvar, axis=0)
+            qz_samp = np.append(qz_samp, qz, axis=0)
             rec_x = np.append(rec_x, px, axis=0)
-            test_zmean = np.append(test_zmean, zmean, axis=0)
-            test_zlogvar = np.append(test_zlogvar, zlogvar, axis=0)
-            test_qz = np.append(test_qz, qz, axis=0)
+            qz_zmean_from_recx = np.append(qz_zmean_from_recx, zmean_from_recx, axis=0)
+            qz_zlogvar_from_recx = np.append(qz_zlogvar_from_recx, zlogvar_from_recx, axis=0)
             
         # save
+        np.save(os.path.join(sample_dir, 'zmean_step_{}.npy'.format(args.TEST_OUT)), qz_zmean)
+        np.save(os.path.join(sample_dir, 'zlogvar_step_{}.npy'.format(args.TEST_OUT)), qz_zlogvar)
+        np.save(os.path.join(sample_dir, 'qz_step_{}.npy'.format(args.TEST_OUT)), qz_samp)
         np.save(os.path.join(sample_dir, 'reconstructions_step_{}.npy'.format(args.TEST_OUT)), rec_x)
-        np.save(os.path.join(sample_dir, 'zmean_step_{}.npy'.format(args.TEST_OUT)), test_zmean)
-        np.save(os.path.join(sample_dir, 'zlogvar_step_{}.npy'.format(args.TEST_OUT)), test_zlogvar)
-        np.save(os.path.join(sample_dir, 'qz_step_{}.npy'.format(args.TEST_OUT)), test_qz)
+        np.save(os.path.join(sample_dir, 'zmean_from_recx_step_{}.npy'.format(args.TEST_OUT)), qz_zmean_from_recx)
+        np.save(os.path.join(sample_dir, 'zlogvar_from_recx_step_{}.npy'.format(args.TEST_OUT)), qz_zlogvar_from_recx)
         
 '''factor intervention'''
 def intervene():
@@ -308,35 +333,65 @@ def intervene():
     intervention_dir = sample_dir + '/intervention'
     if not os.path.exists(intervention_dir):
         os.mkdir(intervention_dir)
-
-    intervened_steps=50
-    intervened_factor_idxs = args.intervention_factor_idxs
+    
+    intervened_steps=1000
+    #intervened_factor_idxs = args.intervention_factor_idxs
     test_qz = np.load(os.path.join(sample_dir, args.fqz))
+    intervened_qz_1 = tf.placeholder(tf.float32, (intervened_steps, mdl.zdim), name='intervened_qz_1')
+    intervened_qz_2 = tf.placeholder(tf.float32, (test_qz.shape[0], mdl.zdim), name='intervened_qz_2')
 
     saver=tf.train.Saver()
-
-    with tf.Session() as sess:
+    configProt = tf.ConfigProto()
+    configProt.gpu_options.allow_growth = True
+    configProt.allow_soft_placement = True
+    
+    with tf.Session(config=configProt) as sess:
 
         if args.load_model is not None:
             saver.restore(sess=sess, save_path=args.load_model)
         else:
             print("InputError: model should exist in test mode!")
+            
+        #### construct arrays which target dim is varied and other dims keep the same
+        output1 = []
+        keep_qz = np.zeros(shape=(intervened_steps, mdl.zdim))
+        #for samp_idx in [-1, 0, 50, 100, 200, 500, 1000, 2000]:
+        #keep_qz = np.expand_dims(test_qz[samp_idx,:], 0).repeat(intervened_steps, axis=0)
+        for intervened_factor_idx in range(mdl.zdim):        
+            target_array = test_qz.copy()[:, intervened_factor_idx]
+            intervened_array = np.linspace(target_array.min(), target_array.max(), num=intervened_steps)
+            intervened_qz_ = keep_qz.copy()
+            intervened_qz_[:, intervened_factor_idx] = intervened_array
+                
+            px_after_intervened_qz = sess.run(mdl.decoder(intervened_qz_1, mdl.xdim, reuse=True, bn=True), 
+                                                feed_dict={intervened_qz_1: intervened_qz_})
+            output1.append(px_after_intervened_qz)
+            
+        np.save(os.path.join(intervention_dir, 'reconstructions_after_intervention_target_dim.npy'), output1)
+        del px_after_intervened_qz, output1, keep_qz, intervened_qz_
         
-        for samp_idx in [0, 50, 100, 200, 500, 1000, 2000]:
-            output = []
-            for intervened_factor_idx in intervened_factor_idxs:
-                target_array = test_qz[:, intervened_factor_idx]
-                intervened_array = np.linspace(target_array.min(), target_array.max(), num=intervened_steps)
-                intervened_qz = np.expand_dims(test_qz[samp_idx,:], 0).repeat(intervened_steps, axis=0)
-                intervened_qz[:, intervened_factor_idx] = intervened_array
-                px_after_intervened_qz = mdl.decoder(tf.convert_to_tensor(intervened_qz, dtype=tf.float32), 
-                                                    mdl.xdim, 
-                                                    reuse=True,
-                                                    bn=True)
-                px_after_intervened_qz = sess.run(px_after_intervened_qz)
-                output.append(px_after_intervened_qz)
-            np.save(os.path.join(intervention_dir, 'samp_fixidx_{}_reconstructions_after_intervention.npy'.format(samp_idx)), output)
-
+        #### construct arrays which target dim keep the same (is 0) and other dims keep varied
+        output2 = []
+        df_ = pd.DataFrame(columns=['gene_sim_mu', 'samp_cosine_sim_mu'])
+        # perturb and generate samples
+        for d in range(mdl.zdim):
+            print(d)
+            intervened_qz_ = test_qz.copy()
+            intervened_qz_[:,d] = 0
+            #name='zdim_{}'.format(d)
+            gen_samps = sess.run(mdl.decoder(intervened_qz_2, mdl.xdim, reuse=True, bn=True), 
+                                    feed_dict={intervened_qz_2: intervened_qz_})
+            output2.append(gen_samps)
+            
+            # calc similarity
+            #gene_sim_mu = np.mean(utilies.calcu_rsquare_distance(gen_samps, data_test.data[0:test_qz.shape[0], :]))
+            #samp_cosine_sim_mu, _ = cosine_sim(gen_samps, data_test.data[0:test_qz.shape[0], :], moments=True)
+            #mmd_dis = metrics.compute_mmd(gen_samps, data_test.data[0:test_qz.shape[0], :])
+            #df_ = df_.append(pd.Series({'gene_sim_mu': gene_sim_mu, 
+            #                            'samp_cosine_sim_mu': samp_cosine_sim_mu}, name=name))
+        #df_.to_csv(os.path.join(intervention_dir, 'samp_similarity_after_intervention_each_dim.csv'))
+        np.save(os.path.join(intervention_dir, 'reconstructions_after_intervention_other_dim.npy'), output2)
+        
 if args.TEST_MODE:
     test()
 elif args.INTERVENE_MODE:
