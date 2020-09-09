@@ -1,1 +1,2 @@
-code built base on tensorflow v1.8 (which is out-of-date)
+baseVAE_tensorflowV1: build on tensorflow 1.8, which is not supported by ghddi cluster envs.    
+baseVAE_tensorflowV2: build on tensorflow 2.2, to run this, try </usr/bin/python3.6 train.py -out output_name> in ghddi cluster.  
